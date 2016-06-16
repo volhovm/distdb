@@ -1,10 +1,16 @@
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | Basic types common for the whole system
 module Types
        ( Entry (..)
+       , Host (..)
+       , Port (..)
+       , NetworkConfig (..)
        , Request (..)
        , Response (..)
        , responseMatches
        ) where
+
+import qualified Data.Map as M
 
 data Entry = Entry
     { eKey   :: String
@@ -16,6 +22,18 @@ instance Show Entry where
 
 instance Read Entry where
     readsPrec _ input = let (k:v:s) = words input in [(Entry k v, concat s)]
+
+newtype Host = Host { getHost :: String }
+               deriving (Show)
+
+newtype Port = Port { getPort :: Word }
+               deriving (Show, Num)
+
+data NetworkConfig =
+    NetworkConfig { networkSize :: Int
+                  , portMap     :: M.Map Int (Host,Port)
+                  , timeout     :: Int
+                  }
 
 data Request
     = GetEntry String

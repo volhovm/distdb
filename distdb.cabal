@@ -15,9 +15,12 @@ cabal-version:       >=1.10
 library
   exposed-modules:     Communication
                      , Types
+                     , ConfigFile
   build-depends:       base >=4.8.2.0 && <4.10
+                     , containers >= 0.5.6.2
                      , socket >= 0.6.0.1
                      , transformers >= 0.4.2.0
+                     , exceptions >= 0.8.2.1
   hs-source-dirs:      src/library
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -27,6 +30,7 @@ executable distdb-server
   main-is:             Server.hs
   other-modules:       Journal
   build-depends:       base >=4.8.2.0 && <4.10
+                     , containers >= 0.5.6.2
                      , socket >= 0.6.0.1
                      , transformers >= 0.4.2.0
   hs-source-dirs:      src/server
@@ -37,6 +41,7 @@ executable distdb-server
 executable distdb-client
   main-is:             Client.hs
   build-depends:       base >=4.8.2.0 && <4.10
+                     , containers >= 0.5.6.2
                      , transformers >= 0.4.2.0
   hs-source-dirs:      src/client
   default-language:    Haskell2010
