@@ -12,7 +12,7 @@ data Entry = Entry
     } deriving (Eq,Ord)
 
 instance Show Entry where
-    show (Entry k v) = show k ++ " " ++ show v
+    show (Entry k v) = k ++ " " ++ v
 
 instance Read Entry where
     readsPrec _ input = let (k:v:s) = words input in [(Entry k v, concat s)]
