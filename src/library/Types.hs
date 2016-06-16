@@ -1,7 +1,9 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | Basic types common for the whole system
 module Types
-       ( Entry (..)
+       ( Key
+       , Value
+       , Entry (..)
        , Host (..)
        , Port (..)
        , NetworkConfig (..)
@@ -12,9 +14,12 @@ module Types
 
 import qualified Data.Map as M
 
+type Key = String
+type Value = String
+
 data Entry = Entry
-    { eKey   :: String
-    , eValue :: String
+    { eKey   :: Key
+    , eValue :: Value
     } deriving (Eq,Ord)
 
 instance Show Entry where
@@ -36,9 +41,9 @@ data NetworkConfig =
                   }
 
 data Request
-    = GetEntry String
+    = GetEntry Key
     | SetEntry Entry
-    | DeleteEntry String
+    | DeleteEntry Key
     | Ping
     deriving (Show,Read,Eq)
 
