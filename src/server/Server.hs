@@ -14,8 +14,15 @@ import           System.Socket.Family.Inet6 (Inet6,
 import           System.Socket.Protocol.TCP (TCP)
 import           System.Socket.Type.Stream  (Stream, sendAll)
 
+import qualified ServerOptions              as O
+
 main :: IO ()
-main = bracket
+main = do
+    o@O.ServerOptions{..} <- O.getServerOptions
+    putStrLn $ "Server called with options: " ++ show o
+
+pretendServer :: IO ()
+pretendServer = bracket
     (socket :: IO (Socket Inet6 Stream TCP))
     (\s -> do close s
               putStrLn "Listening socket closed.")
