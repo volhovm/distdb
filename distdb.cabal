@@ -4,22 +4,32 @@
 name:                distdb
 version:             0.1.0.0
 synopsis:            Distributed db with multipaxos-based consensus
--- description:
 license:             GPL-3
 license-file:        LICENSE
 author:              Mikhail Volkhov
 maintainer:          volhovm.cs@gmail.com
--- copyright:
 category:            Concurrency
 build-type:          Simple
--- extra-source-files:  ChangeLog.md
 cabal-version:       >=1.10
+
+library
+  exposed-modules:     Communication
+                     , Types
+  build-depends:       base >=4.8.2.0 && <4.10
+                     , socket >= 0.6.0.1
+                     , transformers >= 0.4.2.0
+  hs-source-dirs:      src/library
+  default-language:    Haskell2010
+  default-extensions:  OverloadedStrings
+                     , RecordWildCards
 
 executable distdb-server
   main-is:             Server.hs
+  other-modules:       Journal
   build-depends:       base >=4.8.2.0 && <4.10
                      , socket >= 0.6.0.1
-  hs-source-dirs:      src
+                     , transformers >= 0.4.2.0
+  hs-source-dirs:      src/server
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
                      , RecordWildCards
@@ -27,7 +37,8 @@ executable distdb-server
 executable distdb-client
   main-is:             Client.hs
   build-depends:       base >=4.8.2.0 && <4.10
-  hs-source-dirs:      src
+                     , transformers >= 0.4.2.0
+  hs-source-dirs:      src/client
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
                      , RecordWildCards
