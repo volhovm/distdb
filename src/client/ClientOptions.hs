@@ -7,11 +7,12 @@ module ClientOptions
        ) where
 
 import           Data.Monoid         ((<>))
-import           Options.Applicative (Parser, auto, command, execParser,
-                                      fullDesc, help, helper, info, long,
-                                      option, progDesc, str, subparser)
+import           Data.String         (fromString)
+import           Options.Applicative (Parser, auto, command, execParser, fullDesc, help,
+                                      helper, info, long, option, progDesc, short, str,
+                                      strOption, subparser)
 
-import           Types               (Entry (..), Key)
+import           Types               (Entry (..), Host, Key, Port (..))
 
 data ClientCommand
     = SetEntry Entry
@@ -19,8 +20,11 @@ data ClientCommand
     | DeleteEntry Key
     deriving (Show)
 
-data ClientOptions = ClientOptions { clientCommand :: ClientCommand }
-                     deriving (Show)
+data ClientOptions = ClientOptions
+    { clientCommand :: ClientCommand
+    , clientHost    :: Host
+    , clientPort    :: Port
+    } deriving (Show)
 
 userCommandParser :: Parser ClientCommand
 userCommandParser =
@@ -34,13 +38,17 @@ userCommandParser =
     setOpts =
         SetEntry <$>
         (Entry <$>
-         option str (long "key" <> help keyDesc) <*>
-         option str (long "value" <> help valueDesc))
-    getOpts = GetEntry <$> option str (long "key" <> help keyDesc)
-    deleteOpts = DeleteEntry <$> option str (long "key" <> help keyDesc)
+         option str (short 'k' <> long "key" <> help keyDesc) <*>
+         option str (short 'v' <> long "value" <> help valueDesc))
+    getOpts = GetEntry <$> option str (short 'k' <> long "key" <> help keyDesc)
+    deleteOpts = DeleteEntry <$> option str (short 'k' <> long "key" <> help keyDesc)
 
 userOptionsParser :: Parser ClientOptions
-userOptionsParser = ClientOptions <$> userCommandParser
+userOptionsParser =
+    ClientOptions <$>
+    userCommandParser <*>
+    (fromString <$> strOption (short 'h' <> long "host" <> help "User host to bind on.")) <*>
+    (Port <$> option auto (short 'p' <> long "port" <> help "User port to bind on."))
 
 getClientOptions :: IO ClientOptions
 getClientOptions =
