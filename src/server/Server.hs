@@ -37,31 +37,13 @@ import           Debug.Trace
 import           GHC.Generics                     (Generic)
 import           System.Environment               (getArgs)
 
+import           Communication                    (Message (..), PolyMessage (..),
+                                                   Sendable (..), send')
 import           ConfigFile                       (readConfig)
 import qualified ServerOptions                    as O
 import           Types                            (EntryRequest (..), Host (getHost),
                                                    NetworkConfig (..), Pinging (..),
                                                    Port (getPort))
-
--- Explicitely typed message
-data Message a = Message
-    { msgFrom :: ProcessId
-    , msgBody :: a
-    } deriving (Show,Generic,Typeable)
-
-instance (Binary a) => Binary (Message a)
-
-class (Binary a, Show a, Typeable a) => SendableLike a where
-    send' :: ProcessId -> a -> Process ()
-    send' pid x = send pid $ Message pid x
-
-instance SendableLike Pinging
-instance SendableLike EntryRequest
-
-data Sendable = forall a . SendableLike a => Sendable { unSendable :: a }
-
-instance Show Sendable where
-    show (Sendable a) = "Sendable wrapper of: { " ++ show a ++ " }"
 
 data ServerConfig = ServerConfig
     { serverPid  :: ProcessId
@@ -76,12 +58,6 @@ data ServerState = ServerState
     , _peers       :: [ProcessId]
     } deriving (Show)
 makeLenses ''ServerState
-
--- Polymorphic message
-data PolyMessage = PolyMessage
-    { msgTo'   :: ProcessId
-    , msgBody' :: Sendable
-    } deriving (Show)
 
 newtype ServerM a = ServerM
     { runServerM :: RWS ServerConfig [PolyMessage] ServerState a

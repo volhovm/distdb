@@ -69,3 +69,4 @@ data EntryResponse
 instance Binary Entry
 instance Binary Pinging
 instance Binary EntryRequest
+instance Binary EntryResponse
