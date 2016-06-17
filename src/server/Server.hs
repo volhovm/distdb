@@ -11,25 +11,22 @@ module Main where
 
 import           Control.Concurrent               (threadDelay)
 import qualified Control.Distributed.Backend.P2P  as P2P
-import           Control.Distributed.Process      (Process, ProcessId, expect,
-                                                   getSelfPid, match,
-                                                   processNodeId, receiveWait,
-                                                   register, say, send,
-                                                   spawnLocal)
-import           Control.Distributed.Process.Node (initRemoteTable,
-                                                   newLocalNode, runProcess)
+import           Control.Distributed.Process      (Process, ProcessId, expect, getSelfPid,
+                                                   match, processNodeId, receiveWait,
+                                                   register, say, send, spawnLocal)
+import           Control.Distributed.Process.Node (initRemoteTable, newLocalNode,
+                                                   runProcess)
 import           Network.Socket                   (withSocketsDo)
-import           Network.Transport.TCP            (createTransport,
-                                                   defaultTCPParameters)
+import           Network.Transport.TCP            (createTransport, defaultTCPParameters)
+
 
 import           Control.Exception                (bracket, catch)
-import Control.Lens
-       (makeLenses, use, view, (&), (.~), (.=), (+=), uses)
+import           Control.Lens                     (makeLenses, use, uses, view, (&), (+=),
+                                                   (.=), (.~))
 import           Control.Monad                    (forM_, forever, void, when)
 import           Control.Monad.IO.Class           (liftIO)
-import           Control.Monad.RWS.Strict         (MonadReader, MonadState,
-                                                   MonadWriter, RWS (..), ask,
-                                                   execRWS, tell)
+import           Control.Monad.RWS.Strict         (MonadReader, MonadState, MonadWriter,
+                                                   RWS (..), ask, execRWS, tell)
 import           Data.Bifunctor                   (bimap)
 import           Data.Binary                      (Binary (..))
 import           Data.List                        (delete, (\\))
@@ -42,10 +39,9 @@ import           System.Environment               (getArgs)
 
 import           ConfigFile                       (readConfig)
 import qualified ServerOptions                    as O
-import           Types                            (EntryRequest (..),
-                                                   Host (getHost),
-                                                   NetworkConfig (..),
-                                                   Pinging (..), Port (getPort))
+import           Types                            (EntryRequest (..), Host (getHost),
+                                                   NetworkConfig (..), Pinging (..),
+                                                   Port (getPort))
 
 -- Explicitely typed message
 data Message a = Message
@@ -83,7 +79,7 @@ makeLenses ''ServerState
 
 -- Polymorphic message
 data PolyMessage = PolyMessage
-    { msgTo' :: ProcessId
+    { msgTo'   :: ProcessId
     , msgBody' :: Sendable
     } deriving (Show)
 
