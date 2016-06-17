@@ -1,6 +1,6 @@
 -- | This module provides capabilities of reading global network
 -- configuration file
-module ConfigFile where
+module ConfigFile (readConfig) where
 
 import           Control.Exception      (Exception)
 import           Control.Monad          (when)
@@ -22,13 +22,13 @@ instance Exception ConfigException
 -- | Reads config from the "./dkvs.properties" file
 readConfig :: (MonadIO m, MonadThrow m) => m NetworkConfig
 readConfig = do
-    configLines <-
-        liftIO $ map (span (/= '=')) . lines <$> readFile "./dkvs.properties"
+    configLines <- liftIO $
+        map (span' '=') . lines <$> readFile "./dkvs.properties"
     let timeoutValue = read . snd . fromJust $ find ((== "timeout") . fst) configLines
         nodeConfigLines = filter (("node." `isPrefixOf`) . fst) configLines
         readNodeLine (title,option) =
             let nodeN = read $ drop 5 title
-                (hostS,portS) = span (/= ':') option
+                (hostS,portS) = span' ':' option
                 in (nodeN, (Host hostS, Port $ read portS))
         nodesConfig :: [(Int, (Host,Port))]
         nodesConfig = nubBy ((==) `on` fst) $ map readNodeLine nodeConfigLines
@@ -45,3 +45,5 @@ readConfig = do
         , portMap = M.fromList nodesConfig
         , timeout = timeoutValue
         }
+  where
+    span' c = fmap (drop 1) . span (/= c)

@@ -1,5 +1,9 @@
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
+
 -- | Basic types common for the whole system
+
 module Types
        ( Key
        , Value
@@ -7,12 +11,16 @@ module Types
        , Host (..)
        , Port (..)
        , NetworkConfig (..)
-       , Request (..)
-       , Response (..)
-       , responseMatches
+       , Pinging (..)
+       , EntryRequest (..)
+       , EntryResponse (..)
        ) where
 
-import qualified Data.Map as M
+import           Data.Binary   (Binary (..))
+import qualified Data.Map      as M
+import           Data.String   (IsString)
+import           Data.Typeable (Typeable)
+import           GHC.Generics  (Generic)
 
 type Key = String
 type Value = String
@@ -20,7 +28,7 @@ type Value = String
 data Entry = Entry
     { eKey   :: Key
     , eValue :: Value
-    } deriving (Eq,Ord)
+    } deriving (Eq,Ord,Generic,Typeable)
 
 instance Show Entry where
     show (Entry k v) = k ++ " " ++ v
@@ -29,7 +37,7 @@ instance Read Entry where
     readsPrec _ input = let (k:v:s) = words input in [(Entry k v, concat s)]
 
 newtype Host = Host { getHost :: String }
-               deriving (Show)
+               deriving (Show, Read, IsString)
 
 newtype Port = Port { getPort :: Word }
                deriving (Show, Num)
@@ -40,28 +48,24 @@ data NetworkConfig =
                   , timeout     :: Int
                   }
 
-data Request
+data Pinging
+    = Ping
+    | Pong
+    deriving (Show,Read,Eq,Generic,Typeable)
+
+data EntryRequest
     = GetEntry Key
     | SetEntry Entry
     | DeleteEntry Key
-    | Ping
-    deriving (Show,Read,Eq)
+    deriving (Show,Read,Eq,Generic,Typeable)
 
-data Response
+data EntryResponse
     = EntryFound Entry
     | EntrySet
     | EntryDeleted
     | EntryNotFound
-    | Pong
-    deriving (Show,Read,Eq)
+    deriving (Show,Read,Eq,Generic,Typeable)
 
-responseMatches :: Request -> Response -> Bool
-responseMatches rq rs =
-    case (rq, rs) of
-        (GetEntry _,EntryFound _)     -> True
-        (GetEntry _,EntryNotFound)    -> True
-        (SetEntry _,EntrySet)         -> True
-        (DeleteEntry _,EntryDeleted)  -> True
-        (DeleteEntry _,EntryNotFound) -> True
-        (Ping,Pong)                   -> True
-        _                             -> False
+instance Binary Entry
+instance Binary Pinging
+instance Binary EntryRequest

@@ -11,7 +11,7 @@ import           Options.Applicative (Parser, auto, execParser, fullDesc, help,
                                       helper, info, long, option, progDesc,
                                       showDefault)
 
-data ServerOptions = ServerOptions { nodeIndex :: Word }
+data ServerOptions = ServerOptions { nodeIndex :: Int }
                    deriving Show
 
 serverOptionsParser :: Parser ServerOptions
