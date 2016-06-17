@@ -14,6 +14,7 @@ module Types
        , Pinging (..)
        , EntryRequest (..)
        , EntryResponse (..)
+       , responseMatches
        ) where
 
 import           Data.Binary   (Binary (..))
@@ -70,3 +71,13 @@ instance Binary Entry
 instance Binary Pinging
 instance Binary EntryRequest
 instance Binary EntryResponse
+
+responseMatches :: EntryRequest -> EntryResponse -> Bool
+responseMatches rq rs =
+    case (rq, rs) of
+        (GetEntry _,EntryFound _)     -> True
+        (GetEntry _,EntryNotFound)    -> True
+        (SetEntry _,EntrySet)         -> True
+        (DeleteEntry _,EntryDeleted)  -> True
+        (DeleteEntry _,EntryNotFound) -> True
+        _                             -> False

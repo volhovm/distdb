@@ -1,8 +1,7 @@
 -- | Client command line options parsing module
 
 module ClientOptions
-       ( ClientCommand (..)
-       , ClientOptions (..)
+       ( ClientOptions (..)
        , getClientOptions
        ) where
 
@@ -12,21 +11,15 @@ import           Options.Applicative (Parser, auto, command, execParser, fullDes
                                       helper, info, long, option, progDesc, short, str,
                                       strOption, subparser)
 
-import           Types               (Entry (..), Host, Key, Port (..))
-
-data ClientCommand
-    = SetEntry Entry
-    | GetEntry Key
-    | DeleteEntry Key
-    deriving (Show)
+import           Types               (Entry (..), EntryRequest (..), Host, Key, Port (..))
 
 data ClientOptions = ClientOptions
-    { clientCommand :: ClientCommand
+    { clientCommand :: EntryRequest
     , clientHost    :: Host
     , clientPort    :: Port
     } deriving (Show)
 
-userCommandParser :: Parser ClientCommand
+userCommandParser :: Parser EntryRequest
 userCommandParser =
     subparser
         (command "set" (info setOpts (progDesc "Set the <key, value>")) <>
@@ -47,8 +40,8 @@ userOptionsParser :: Parser ClientOptions
 userOptionsParser =
     ClientOptions <$>
     userCommandParser <*>
-    (fromString <$> strOption (short 'h' <> long "host" <> help "User host to bind on.")) <*>
-    (Port <$> option auto (short 'p' <> long "port" <> help "User port to bind on."))
+    (fromString <$> strOption (short 'H' <> long "host" <> help "User host to bind on.")) <*>
+    (Port <$> option auto (short 'P' <> long "port" <> help "User port to bind on."))
 
 getClientOptions :: IO ClientOptions
 getClientOptions =
