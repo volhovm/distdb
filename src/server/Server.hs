@@ -23,8 +23,8 @@ import           Network.Transport.TCP            (createTransport, defaultTCPPa
 
 
 import           Control.Exception                (SomeException (..), bracket, catch)
-import           Control.Lens                     (makeLenses, use, uses, view, (&), (+=),
-                                                   (.=), (.~))
+import           Control.Lens                     (makeLenses, use, uses, view, (%=), (&),
+                                                   (+=), (.=), (.~))
 import           Control.Monad                    (forM_, forever, void, when)
 import           Control.Monad.Catch              (throwM)
 import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
@@ -47,9 +47,9 @@ import           Communication                    (Message (..), PolyMessage (..
                                                    Sendable (..), send')
 import           ConfigFile                       (readConfig)
 import qualified ServerOptions                    as O
-import           Types                            (EntryRequest (..), EntryResponse (..),
-                                                   Host (getHost), Key,
-                                                   NetworkConfig (..), Pinging (..),
+import           Types                            (Entry (..), EntryRequest (..),
+                                                   EntryResponse (..), Host (getHost),
+                                                   Key, NetworkConfig (..), Pinging (..),
                                                    Port (getPort), Value)
 
 
@@ -137,9 +137,22 @@ pingingHandler (Message from Pong) = do
     pongsNumber += 1
 
 entryRequestHandler :: Message EntryRequest -> ServerM ()
-entryRequestHandler (Message from _) = do
-    writeMsg $ PolyMessage from $ Sendable EntryNotFound
-    writeLog $ "Send EntryNotFound to " ++ show from
+entryRequestHandler (Message from (GetEntry k)) = do
+    value <- uses hashmap (M.lookup k)
+    let returnVal = maybe EntryNotFound (\v -> EntryFound $ Entry k v) value
+    writeMsg $ PolyMessage from $ Sendable returnVal
+    writeLog $ "Send " ++ show returnVal ++ " to " ++ show from
+entryRequestHandler (Message from (SetEntry (Entry k v))) = do
+    hashmap %= (M.insert k v)
+    writeMsg $ PolyMessage from $ Sendable EntrySet
+    writeLog $ "Send EntrySet to " ++ show from
+entryRequestHandler (Message from (DeleteEntry k)) = do
+    isMember <- uses hashmap (M.member k)
+    hashmap %= M.delete k
+    let returnVal = if isMember then EntryDeleted else EntryNotFound
+    writeMsg $ PolyMessage from $ Sendable returnVal
+    writeLog $ "Send " ++ show returnVal ++ " to " ++ show from
+
 
 runServer :: ServerConfig -> ServerState -> Process ()
 runServer config state = do
