@@ -11,16 +11,23 @@ module PaxosTypes
        , emptyReplicaState
        , ProposeRequest (..)
        , Decision (..)
+       , Ballot
+       , PValue
+       , AcceptorState (..)
+       , ballotNum, accepted
+       , emptyAcceptorState
+       , PhaseCommitA (..),
+         PhaseCommitB (..)
        ) where
 
-import           Communication (Message, SendableLike)
 import           Control.Lens  (makeLenses)
 import           Data.Binary   (Binary (..))
+import qualified Data.Set      as S
 import           Data.Typeable (Typeable)
 import           GHC.Generics  (Generic)
-import           Types         (EntryRequest)
 
-import qualified Data.Set      as S
+import           Communication (Message, SendableLike)
+import           Types         (EntryRequest)
 
 type Slot = Int
 type CommandId = Int -- ? Hash?
@@ -51,7 +58,34 @@ data Decision = Decision Slot ClientRequest
 instance Binary Command
 instance Binary ProposeRequest
 instance Binary Decision
-
 instance SendableLike Command
 instance SendableLike ProposeRequest
 instance SendableLike Decision
+
+
+type Ballot = Int
+type PValue = (Ballot, Slot, Command)
+
+data AcceptorState = AcceptorState
+    { _ballotNum :: Ballot
+    , _accepted  :: S.Set PValue
+    } deriving (Show,Read)
+makeLenses ''AcceptorState
+
+emptyAcceptorState :: AcceptorState
+emptyAcceptorState = AcceptorState (-1) S.empty
+
+data PhaseCommitA
+    = P1A Ballot
+    | P2A PValue
+    deriving (Show,Read,Generic,Typeable)
+
+data PhaseCommitB
+    = P1B Ballot (S.Set PValue)
+    | P2B Ballot
+    deriving (Show,Read,Generic,Typeable)
+
+instance Binary PhaseCommitA
+instance Binary PhaseCommitB
+instance SendableLike PhaseCommitA
+instance SendableLike PhaseCommitB

@@ -2,7 +2,7 @@
 module PaxosLogic where
 
 
-import           Control.Lens             (use, uses, (%=), (+=))
+import           Control.Lens             (use, uses, (%=), (+=), (<%=))
 import           Control.Monad            (forM_, unless, when)
 import           Control.Monad.RWS.Strict (ask)
 import qualified Data.Map                 as M
@@ -10,10 +10,12 @@ import qualified Data.Set                 as S
 
 import           Communication            (Message (..))
 import           PaxosTypes               (ClientRequest, Command (..), Decision (..),
-                                           ProposeRequest (..), Slot, decisions,
-                                           proposals, requests, slotIn, slotOut)
-import           ServerTypes              (ServerM, hashmap, replica, serverPeers,
-                                           writeMsg')
+                                           PhaseCommitA (..), PhaseCommitB (..),
+                                           ProposeRequest (..), Slot, accepted, ballotNum,
+                                           decisions, proposals, requests, slotIn,
+                                           slotOut)
+import           ServerTypes              (ServerM, acceptor, hashmap, replica,
+                                           serverPeers, writeMsg')
 import           Types                    (Entry (..), EntryRequest (..),
                                            EntryResponse (..))
 
@@ -31,6 +33,9 @@ applyCommand (DeleteEntry k) = do
     hashmap %= M.delete k
     return $ if ret then EntryDeleted else EntryNotFound
 
+
+--------- REPLICA ---------
+
 replicaPropose :: ServerM ()
 replicaPropose = do
     sIn <- use $ replica . slotIn
@@ -46,11 +51,6 @@ replicaPropose = do
             forM_ nodes $ \leader -> writeMsg' leader $ ProposeRequest sIn c
         replica . slotIn += 1
 
-replicaOnRequest :: ClientRequest -> ServerM ()
-replicaOnRequest c = do
-    replica . requests %= S.insert c
-    replicaPropose
-
 replicaPerform :: ClientRequest -> ServerM ()
 replicaPerform req@(Message k (Command _ entry)) = do
     des <- use $ replica . decisions
@@ -62,8 +62,13 @@ replicaPerform req@(Message k (Command _ entry)) = do
             replica . slotOut += 1
             writeMsg' k response
 
-replicaOnDecision :: Decision -> ServerM ()
-replicaOnDecision (Decision s c) = do
+replicaOnRequest :: ClientRequest -> ServerM ()
+replicaOnRequest c = do
+    replica . requests %= S.insert c
+    replicaPropose
+
+replicaOnDecision :: Message Decision -> ServerM ()
+replicaOnDecision (Message _ (Decision s c)) = do
     replica . decisions %= S.insert (s,c)
     des <- uses (replica . decisions) S.toList
     props <- uses (replica . proposals) S.toList
@@ -75,3 +80,15 @@ replicaOnDecision (Decision s c) = do
               replica . proposals %= S.delete (sOut,c'')
               when (c' /= c'') $ replica . requests %= S.insert c''
     forM_ [d | d@(s1,_) <- des, s1 == sOut] $ replicaPerform . snd
+
+--------- ACCEPTOR ---------
+
+acceptorOnPC :: Message PhaseCommitA -> ServerM ()
+acceptorOnPC (Message from (P1A b)) = do
+    chosenB <- acceptor . ballotNum <%= max b
+    acc <- use $ acceptor . accepted
+    writeMsg' from $ P1B chosenB acc
+acceptorOnPC (Message from (P2A pv@(b,_,_))) = do
+    b' <- use $ acceptor . ballotNum
+    when (b' == b) $ acceptor . accepted %= S.insert pv
+    writeMsg' from $ P2B b'

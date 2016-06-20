@@ -15,7 +15,7 @@ module ServerTypes
        , writeMsg, writeLog, writeAction
 
        , ServerState (..)
-       , pongsNumber, hashmap, replica
+       , pongsNumber, hashmap, replica, acceptor
        , emptyServerState
        , dumpServerState
        , readServerState
@@ -37,7 +37,8 @@ import           Data.Time.Clock             (getCurrentTime)
 
 import           Communication               (PolyMessage (..), Sendable (..),
                                               SendableLike)
-import           PaxosTypes                  (ReplicaState (..), emptyReplicaState)
+import           PaxosTypes                  (AcceptorState (..), ReplicaState (..),
+                                              emptyAcceptorState, emptyReplicaState)
 import           Types                       (Host, Key, Port, Value)
 
 -- Readable
@@ -77,11 +78,12 @@ data ServerState = ServerState
     { _pongsNumber :: Int
     , _hashmap     :: M.Map Key Value
     , _replica     :: ReplicaState
+    , _acceptor    :: AcceptorState
     } deriving (Show,Read)
 makeLenses ''ServerState
 
 emptyServerState :: ServerState
-emptyServerState = ServerState 0 M.empty emptyReplicaState
+emptyServerState = ServerState 0 M.empty emptyReplicaState emptyAcceptorState
 
 -- | Writes server state to the given path
 dumpServerState :: (MonadIO m) => FilePath -> ServerState -> m ()
