@@ -5,23 +5,29 @@ module PaxosLogic
        , acceptorOnPC
        , spawnScout
        , spawnCommander
+       , leaderOnCommit
        , initLeader
+       , leaderOnNotification
        ) where
 
-import           Control.Lens             (use, uses, (%=), (+=), (<%=))
+import           Control.Lens             (use, uses, (%=), (+=), (.=), (<%=))
 import           Control.Monad            (forM_, unless, when)
 import           Control.Monad.RWS.Strict (ask)
 import qualified Data.Map                 as M
+import           Data.Maybe               (fromJust)
 import qualified Data.Set                 as S
 
 import           Communication            (Message (..))
 import           PaxosTypes               (Ballot, ClientRequest, Command (..),
                                            Decision (..), LeaderNotification (..), PValue,
                                            PhaseCommitA (..), PhaseCommitB (..), Slot,
-                                           aBallotNum, accepted, decisions, lCommanders,
-                                           lScouts, proposals, requests, slotIn, slotOut)
+                                           aBallotNum, accepted, decisions, lActive,
+                                           lBallotNum, lCommanders, lProposals, lScouts,
+                                           lUniqueId, proposals, requests, slotIn,
+                                           slotOut)
 import           ServerTypes              (ServerM, acceptor, hashmap, leader, replica,
-                                           serverPeers, writeMsg')
+                                           serverNodesN, serverPeers, serverPid,
+                                           writeMsg')
 import           Types                    (Entry (..), EntryRequest (..),
                                            EntryResponse (..))
 
@@ -90,31 +96,98 @@ replicaOnDecision (Message _ (Decision s c)) = do
 --------- ACCEPTOR ---------
 
 acceptorOnPC :: Message PhaseCommitA -> ServerM ()
-acceptorOnPC (Message from (P1A λ b)) = do
+acceptorOnPC (Message from (P1A ψ b)) = do
     chosenB <- acceptor . aBallotNum <%= max b
     acc <- use $ acceptor . accepted
-    writeMsg' from $ P1B λ chosenB acc
-acceptorOnPC (Message from (P2A λ pv@(b,_,_))) = do
+    writeMsg' from $ P1B ψ chosenB acc
+acceptorOnPC (Message from (P2A ψ pv@(b,_,_))) = do
     b' <- use $ acceptor . aBallotNum
     when (b' == b) $ acceptor . accepted %= S.insert pv
-    writeMsg' from $ P2B (b',λ)
+    writeMsg' from $ P2B ψ b'
 
 
 --------- SCOUT & COMMANDER ---------
 
-spawnScout :: Int -> Ballot -> ServerM ()
-spawnScout λ b = do
-    leader . lScouts %= M.insert λ (S.empty, [])
+spawnScout :: Ballot -> ServerM ()
+spawnScout b = do
+    ψ <- use $ leader . lUniqueId
+    leader . lUniqueId += 1
+    leader . lScouts %= M.insert ψ (S.empty, S.empty, b)
     nodes <- serverPeers <$> ask
-    forM_ nodes $ \α -> writeMsg' α $ P1A λ b
+    forM_ nodes $ \α -> writeMsg' α $ P1A ψ b
 
-spawnCommander :: Int -> PValue -> ServerM ()
-spawnCommander λ pval = do
-    leader .lCommanders %= M.insert λ (S.empty, [])
+spawnCommander :: PValue -> ServerM ()
+spawnCommander pval = do
+    ψ <- use $ leader . lUniqueId
+    leader . lUniqueId += 1
+    leader .lCommanders %= M.insert ψ (S.empty, pval)
     nodes <- serverPeers <$> ask
-    forM_ nodes $ \α -> writeMsg' α $ P2A λ pval
+    forM_ nodes $ \α -> writeMsg' α $ P2A ψ pval
+
+sendBack x = do
+    self <- serverPid <$> ask
+    writeMsg' self x
+
+-- actually, that's scout & commander
+leaderOnCommit :: Message PhaseCommitB -> ServerM ()
+leaderOnCommit (Message α (P1B ψ b' pvals)) = do
+    n <- serverNodesN <$> ask
+    scouts <- use $ leader . lScouts
+    let suicide = leader . lScouts %= M.delete ψ
+    when (ψ `M.member` scouts) $ do
+        (_,_,b) <- uses (leader . lScouts) $ fromJust . M.lookup ψ
+        if b' == b
+        then do (leader . lScouts) %= (M.adjust (\(x,s,y) -> (x,S.union s pvals,y)) ψ)
+                (leader . lScouts) %= (M.adjust (\(s,x,y) -> (S.insert α s,x,y)) ψ)
+                (answers,pvalues,_) <- uses (leader . lScouts) $ fromJust . M.lookup ψ
+                when (length answers > n `div` 2) $ do
+                    sendBack $ Adopted b $ S.toList pvalues
+                    suicide
+        else do sendBack $ Preempted b'
+                suicide
+leaderOnCommit (Message α (P2B ψ b')) = do
+    n <- serverNodesN <$> ask
+    commanders <- use $ leader . lCommanders
+    let suicide = leader . lCommanders %= M.delete ψ
+    when (ψ `M.member` commanders) $ do
+        (_,(b,s,c)) <- uses (leader . lCommanders) $ fromJust . M.lookup ψ
+        if b' == b
+        then do (leader . lCommanders) %= (M.adjust (\(ans,y) -> (S.insert α ans,y)) ψ)
+                (answers,_) <- uses (leader . lCommanders) $ fromJust . M.lookup ψ
+                when (length answers > n `div` 2) $ do
+                    nodes <- serverPeers <$> ask
+                    forM_ nodes $ \replica' -> writeMsg' replica' $ Decision s c
+                    suicide
+        else do sendBack $ Preempted b'
+                suicide
+
 
 --------- LEADER ---------
 
+
 initLeader :: ServerM ()
-initLeader = spawnScout 0 0
+initLeader = spawnScout 0
+
+leaderOnNotification :: Message LeaderNotification -> ServerM ()
+leaderOnNotification (Message _ (ProposeRequest s c)) = do
+    slotTaken <- uses (leader . lProposals) $ any ((== s) . fst) . S.toList
+    unless slotTaken $ do
+        leader . lProposals %= S.insert (s,c)
+        act <- use $ leader . lActive
+        blt <- use $ leader . lBallotNum
+        when act $ spawnCommander (blt,s,c)
+leaderOnNotification (Message _ (Adopted b pvals)) = do
+    let pmax = [(s,c) | (b,s,c) <- pvals, all (\(b',s',_) -> s' == s && b' <= b) pvals]
+        x <| y = y ++ [(s,c) | (s,c) <- x, all (\(s',c') -> s' /= s) y]
+    props <- leader . lProposals <%= (\p -> S.fromList $ (S.toList p) <| pmax)
+    ballotN <- use $ leader . lBallotNum
+    forM_ props $ \(s,c) -> spawnCommander (ballotN,s,c)
+    leader . lActive .= True
+               -- (\(_,s,c) -> (s,c)) $ maximumBy (comparing (\(_,s,_) -> s)) pvals
+leaderOnNotification (Message from (Preempted ballot)) = do
+    blt <- use $ leader . lBallotNum
+    self <- serverPid <$> ask
+    when ((ballot,from) > (blt,self)) $ do
+        leader . lActive .= False
+        leader . lBallotNum .= (ballot + 1)
+        spawnScout (ballot + 1)

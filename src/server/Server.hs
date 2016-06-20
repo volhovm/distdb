@@ -118,7 +118,7 @@ worker index (host, port) NetworkConfig{..} = do
     --serverState <- expect :: Process String
     let logFile = "distdb" ++ show index ++ ".log"
     serverState <- readServerState logFile
-    runServer (ServerConfig myPid host port index logFile nodes)
+    runServer (ServerConfig myPid host port index logFile networkSize nodes)
               serverState
 
 getNodes :: Process [ProcessId]

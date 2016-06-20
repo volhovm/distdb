@@ -19,7 +19,7 @@ module PaxosTypes
        , PhaseCommitB (..)
        , LeaderNotification (..)
        , LeaderState (..)
-       , lBallotNum, lActive, lProposals, lScouts, lCommanders
+       , lBallotNum, lActive, lProposals, lScouts, lCommanders, lUniqueId
        , emptyLeaderState
        ) where
 
@@ -37,8 +37,8 @@ import           Types                       (EntryRequest)
 type Slot = Int
 type CommandId = Int -- ? Hash?
 type Ballot = Int
-type LeaderId = Int
-type PValue = (Ballot, Slot, Command)
+type SubLeaderId = Int
+type PValue = (Ballot, Slot, ClientRequest)
 type ClientRequest = Message Command
 
 data Command = Command CommandId EntryRequest
@@ -77,13 +77,13 @@ emptyAcceptorState :: AcceptorState
 emptyAcceptorState = AcceptorState (-1) S.empty
 
 data PhaseCommitA
-    = P1A LeaderId Ballot
-    | P2A LeaderId PValue
+    = P1A SubLeaderId Ballot
+    | P2A SubLeaderId PValue
     deriving (Show,Read,Generic,Typeable)
 
 data PhaseCommitB
-    = P1B LeaderId Ballot (S.Set PValue)
-    | P2B (Ballot,LeaderId)
+    = P1B SubLeaderId Ballot (S.Set PValue)
+    | P2B SubLeaderId Ballot
     deriving (Show,Read,Generic,Typeable)
 
 instance Binary PhaseCommitA
@@ -96,17 +96,18 @@ data LeaderState = LeaderState
     { _lBallotNum  :: Ballot
     , _lActive     :: Bool
     , _lProposals  :: S.Set (Slot, ClientRequest)
-    , _lScouts     :: M.Map Ballot (S.Set ProcessId, [PValue])
-    , _lCommanders :: M.Map Ballot (S.Set ProcessId, [PValue])
+    , _lScouts     :: M.Map Ballot (S.Set ProcessId, S.Set PValue, Ballot)
+    , _lCommanders :: M.Map Ballot (S.Set ProcessId, PValue)
+    , _lUniqueId   :: Int
     } deriving (Show,Read)
 makeLenses ''LeaderState
 
 emptyLeaderState :: LeaderState
-emptyLeaderState = LeaderState 0 False S.empty M.empty M.empty
+emptyLeaderState = LeaderState 0 False S.empty M.empty M.empty 0
 
 -- What leader gets
-data LeaderNotification =
-    ProposeRequest Slot ClientRequest
+data LeaderNotification
+    = ProposeRequest Slot ClientRequest
     | Adopted Ballot [PValue]
     | Preempted Ballot
     deriving (Show,Read,Generic,Typeable)

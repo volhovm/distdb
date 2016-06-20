@@ -50,6 +50,7 @@ data ServerConfig = ServerConfig
     , serverPort    :: Port
     , serverId      :: Int
     , serverJournal :: FilePath
+    , serverNodesN  :: Int
     , serverPeers   :: [ProcessId]
     } deriving (Show)
 
