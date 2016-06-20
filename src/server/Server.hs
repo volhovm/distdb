@@ -43,11 +43,11 @@ import           ServerTypes                      (ServerConfig (..), ServerM (.
                                                    replica, writeLog, writeMsg')
 import           Types                            (Entry (..), EntryRequest (..),
                                                    EntryResponse (..), Host (getHost),
-                                                   NetworkConfig (..), Pinging (..),
-                                                   Port (getPort), Role (..))
+                                                   Key, NetworkConfig (..), Pinging (..),
+                                                   Port (getPort), Role (..), Value)
 
 
-data StateSharing = ShareStatePls | HereIsYourState L.ReplicaState
+data StateSharing = ShareStatePls | HereIsYourState L.ReplicaState (M.Map Key Value)
                     deriving (Show,Generic,Typeable)
 instance Binary StateSharing
 instance SendableLike StateSharing
@@ -67,10 +67,11 @@ roleToService Replica = "distdbReplica"
 roleToService Acceptor = "distdbAcceptor"
 
 stateSharingHandler :: Message StateSharing -> ServerM ()
-stateSharingHandler (Message _ (HereIsYourState _)) = return () -- ignore
+stateSharingHandler (Message _ (HereIsYourState _ _)) = return () -- ignore
 stateSharingHandler (Message from ShareStatePls) = do
     r <- use replica
-    writeMsg' from $ HereIsYourState r
+    h <- use hashmap
+    writeMsg' from $ HereIsYourState r h
 
 tickHandler :: Tick -> ServerM ()
 tickHandler = const $ return ()
@@ -119,7 +120,7 @@ runServer config state = do
         writerPart
     say' "\n"
     liftIO $ print =<< getCurrentTime
-    say' $ "Current state: " ++ show state'
+    --say' $ "Current state: " ++ show state'
     config' <- updateConfig config
     dumpServerState (serverJournal config') state'
     runServer config' state'
@@ -173,10 +174,10 @@ worker index NetworkConfig{..} = do
       forM_ otherReplicas $ \repl -> send repl $ Message self ShareStatePls
       st0@ServerState{..} <- readServerState logFile
       mRes <- expectTimeout 2000000
-      maybe (say' "Created state from scratch" >> return st0)
-            (\(Message from m) -> do
+      maybe (say' "Created state/reading from file" >> return st0)
+            (\(Message from (HereIsYourState m h)) -> do
                 say' $ "Successfully retrieved state from " ++ show from
-                return ServerState { _replica = m, .. })
+                return ServerState { _hashmap = h, _replica = m, .. })
             mRes
 
 main :: IO ()

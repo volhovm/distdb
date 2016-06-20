@@ -82,20 +82,20 @@ data ServerState = ServerState
     , _replica  :: ReplicaState
     , _acceptor :: AcceptorState
     , _leader   :: LeaderState
-    } deriving (Read)
+    } deriving (Read,Show)
 makeLenses ''ServerState
 
-instance Show ServerState where
-    show ServerState{..} =
-        mconcat [ "ServerState {\n_hashmap = "
-                , show _hashmap
-                , ",\n_replica = "
-                , show _replica
-                , ",\n_acceptor = "
-                , show _acceptor
-                , ",\n_leader = "
-                , show _leader
-                , "}" ]
+--instance Show ServerState where
+--    show ServerState{..} =
+--        mconcat [ "ServerState {\n_hashmap = "
+--                , show _hashmap
+--                , ",\n_replica = "
+--                , show _replica
+--                , ",\n_acceptor = "
+--                , show _acceptor
+--                , ",\n_leader = "
+--                , show _leader
+--                , "}" ]
 
 emptyServerState :: ServerState
 emptyServerState =
@@ -114,11 +114,12 @@ readServerState journalPath = liftIO $ go `catch` fallback
   where
     go = do
         maybeState <-
-            fmap fst . listToMaybe . reads . last . words <$>
+            fmap fst . listToMaybe . reads . last . lines <$>
             readFile journalPath
-        threadDelay 1000000
+        threadDelay 400000
         maybe (error ":(") return maybeState
-    fallback (_ :: SomeException) = do
+    fallback (e :: SomeException) = do
+        liftIO $ putStrLn $ "Creating emptyServerState, failed to read: " ++ show e
         dumpServerState journalPath emptyServerState
         return emptyServerState
 
