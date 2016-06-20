@@ -52,20 +52,20 @@ data NetworkConfig =
 data Pinging
     = Ping
     | Pong
-    deriving (Show,Read,Eq,Generic,Typeable)
+    deriving (Show,Read,Eq,Ord,Generic,Typeable)
 
 data EntryRequest
     = GetEntry Key
     | SetEntry Entry
     | DeleteEntry Key
-    deriving (Show,Read,Eq,Generic,Typeable)
+    deriving (Show,Read,Eq,Ord,Generic,Typeable)
 
 data EntryResponse
     = EntryFound Entry
     | EntrySet
     | EntryDeleted
     | EntryNotFound
-    deriving (Show,Read,Eq,Generic,Typeable)
+    deriving (Show,Read,Eq,Ord,Generic,Typeable)
 
 instance Binary Entry
 instance Binary Pinging
@@ -81,3 +81,8 @@ responseMatches rq rs =
         (DeleteEntry _,EntryDeleted)  -> True
         (DeleteEntry _,EntryNotFound) -> True
         _                             -> False
+
+
+data ConsensusRequest = ConsensusRequest EntryRequest
+                        deriving (Typeable,Generic)
+instance Binary ConsensusRequest

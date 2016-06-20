@@ -13,14 +13,15 @@ import           Data.Typeable               (Typeable)
 import           GHC.Generics                (Generic)
 
 
+import           Instances                   ()
 import           Types                       (EntryRequest (..), EntryResponse (..),
-                                              NetworkConfig (..), Pinging (..))
+                                              Pinging (..))
 
 -- | Explicitely typed message
 data Message a = Message
     { msgFrom :: ProcessId
     , msgBody :: a
-    } deriving (Show,Generic,Typeable)
+    } deriving (Show,Generic,Typeable,Read,Eq,Ord)
 instance (Binary a) => Binary (Message a)
 
 -- | Class for send-over-network datatypes to put them in heterohenous
