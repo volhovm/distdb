@@ -1,6 +1,7 @@
 {-# LANGUAGE DeriveFunctor              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RankNTypes                 #-}
 {-# LANGUAGE StandaloneDeriving         #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -20,6 +21,7 @@ module ServerTypes
        , readServerState
 
        , ServerM (..)
+       , writeMsg'
        ) where
 
 import           Control.Concurrent          (threadDelay)
@@ -28,14 +30,15 @@ import           Control.Exception           (SomeException (..), catch)
 import           Control.Lens                (makeLenses)
 import           Control.Monad.IO.Class      (MonadIO (..), liftIO)
 import           Control.Monad.RWS.Strict    (MonadReader, MonadState, MonadWriter, RWS,
-                                              tell)
+                                              ask, tell)
 import qualified Data.Map                    as M
 import           Data.Maybe                  (listToMaybe)
 import           Data.Time.Clock             (getCurrentTime)
 
-import           Communication               (PolyMessage (..))
+import           Communication               (PolyMessage (..), Sendable (..),
+                                              SendableLike)
+import           PaxosTypes                  (ReplicaState (..), emptyReplicaState)
 import           Types                       (Host, Key, Port, Value)
-import PaxosTypes (ReplicaState (..), emptyReplicaState)
 
 -- Readable
 
@@ -73,8 +76,8 @@ writeAction a = tell $ WriterPart [] [] [a]
 data ServerState = ServerState
     { _pongsNumber :: Int
     , _hashmap     :: M.Map Key Value
-    , _replica :: ReplicaState
-    } deriving (Show, Read)
+    , _replica     :: ReplicaState
+    } deriving (Show,Read)
 makeLenses ''ServerState
 
 emptyServerState :: ServerState
@@ -107,3 +110,6 @@ newtype ServerM a = ServerM
     { runServerM :: RWS ServerConfig WriterPart ServerState a
     } deriving (Functor,Applicative,Monad,MonadState ServerState,
                 MonadWriter WriterPart,MonadReader ServerConfig)
+
+writeMsg' :: (SendableLike a) => ProcessId -> a -> ServerM ()
+writeMsg' p arg = writeMsg $ PolyMessage p $ Sendable arg
