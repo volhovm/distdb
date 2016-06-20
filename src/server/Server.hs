@@ -84,6 +84,7 @@ entryRequestHandler (Message from (DeleteEntry k)) = do
 
 runServer :: ServerConfig -> ServerState -> Process ()
 runServer config state = do
+    -- TODO Don't forget to initialize leader!
     let run handler msg = return $ execRWS (runServerM $ handler msg) config state
     (state', writerPart) <-
         receiveWait [ match $ run tickHandler

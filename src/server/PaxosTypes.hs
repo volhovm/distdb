@@ -19,17 +19,20 @@ module PaxosTypes
        , PhaseCommitB (..)
        , LeaderNotification (..)
        , LeaderState (..)
-       ,
+       , lBallotNum, lActive, lProposals, lScouts, lCommanders
+       , emptyLeaderState
        ) where
 
-import           Control.Lens  (makeLenses)
-import           Data.Binary   (Binary (..))
-import qualified Data.Set      as S
-import           Data.Typeable (Typeable)
-import           GHC.Generics  (Generic)
+import           Control.Distributed.Process (ProcessId)
+import           Control.Lens                (makeLenses)
+import           Data.Binary                 (Binary (..))
+import qualified Data.Map                    as M
+import qualified Data.Set                    as S
+import           Data.Typeable               (Typeable)
+import           GHC.Generics                (Generic)
 
-import           Communication (Message, SendableLike)
-import           Types         (EntryRequest)
+import           Communication               (Message, SendableLike)
+import           Types                       (EntryRequest)
 
 type Slot = Int
 type CommandId = Int -- ? Hash?
@@ -90,11 +93,16 @@ instance SendableLike PhaseCommitB
 
 
 data LeaderState = LeaderState
-    { _lBallotNum :: Ballot
-    , _lActive    :: Bool
-    , _lProposals :: S.Set (Slot, ClientRequest)
+    { _lBallotNum  :: Ballot
+    , _lActive     :: Bool
+    , _lProposals  :: S.Set (Slot, ClientRequest)
+    , _lScouts     :: M.Map Ballot (S.Set ProcessId, [PValue])
+    , _lCommanders :: M.Map Ballot (S.Set ProcessId, [PValue])
     } deriving (Show,Read)
 makeLenses ''LeaderState
+
+emptyLeaderState :: LeaderState
+emptyLeaderState = LeaderState 0 False S.empty M.empty M.empty
 
 -- What leader gets
 data LeaderNotification =
