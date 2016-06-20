@@ -9,15 +9,17 @@ module PaxosTypes
        , ReplicaState (..)
        , slotIn, slotOut, requests, proposals, decisions
        , emptyReplicaState
-       , ProposeRequest (..)
        , Decision (..)
        , Ballot
        , PValue
        , AcceptorState (..)
-       , ballotNum, accepted
+       , aBallotNum, accepted
        , emptyAcceptorState
-       , PhaseCommitA (..),
-         PhaseCommitB (..)
+       , PhaseCommitA (..)
+       , PhaseCommitB (..)
+       , LeaderNotification (..)
+       , LeaderState (..)
+       ,
        ) where
 
 import           Control.Lens  (makeLenses)
@@ -31,11 +33,14 @@ import           Types         (EntryRequest)
 
 type Slot = Int
 type CommandId = Int -- ? Hash?
+type Ballot = Int
+type LeaderId = Int
+type PValue = (Ballot, Slot, Command)
+type ClientRequest = Message Command
 
 data Command = Command CommandId EntryRequest
                deriving (Show,Read,Eq,Ord,Generic)
 
-type ClientRequest = Message Command
 
 data ReplicaState = ReplicaState
     { _slotIn    :: Slot
@@ -49,26 +54,19 @@ makeLenses ''ReplicaState
 emptyReplicaState :: ReplicaState
 emptyReplicaState = ReplicaState 1 1 S.empty S.empty S.empty
 
-data ProposeRequest = ProposeRequest Slot ClientRequest
-                      deriving (Show,Read,Generic,Typeable)
 
 data Decision = Decision Slot ClientRequest
                 deriving (Show,Read,Generic,Typeable)
 
 instance Binary Command
-instance Binary ProposeRequest
 instance Binary Decision
 instance SendableLike Command
-instance SendableLike ProposeRequest
 instance SendableLike Decision
 
 
-type Ballot = Int
-type PValue = (Ballot, Slot, Command)
-
 data AcceptorState = AcceptorState
-    { _ballotNum :: Ballot
-    , _accepted  :: S.Set PValue
+    { _aBallotNum :: Ballot
+    , _accepted   :: S.Set PValue
     } deriving (Show,Read)
 makeLenses ''AcceptorState
 
@@ -76,16 +74,34 @@ emptyAcceptorState :: AcceptorState
 emptyAcceptorState = AcceptorState (-1) S.empty
 
 data PhaseCommitA
-    = P1A Ballot
-    | P2A PValue
+    = P1A LeaderId Ballot
+    | P2A LeaderId PValue
     deriving (Show,Read,Generic,Typeable)
 
 data PhaseCommitB
-    = P1B Ballot (S.Set PValue)
-    | P2B Ballot
+    = P1B LeaderId Ballot (S.Set PValue)
+    | P2B (Ballot,LeaderId)
     deriving (Show,Read,Generic,Typeable)
 
 instance Binary PhaseCommitA
 instance Binary PhaseCommitB
 instance SendableLike PhaseCommitA
 instance SendableLike PhaseCommitB
+
+
+data LeaderState = LeaderState
+    { _lBallotNum :: Ballot
+    , _lActive    :: Bool
+    , _lProposals :: S.Set (Slot, ClientRequest)
+    } deriving (Show,Read)
+makeLenses ''LeaderState
+
+-- What leader gets
+data LeaderNotification =
+    ProposeRequest Slot ClientRequest
+    | Adopted Ballot [PValue]
+    | Preempted Ballot
+    deriving (Show,Read,Generic,Typeable)
+
+instance Binary LeaderNotification
+instance SendableLike LeaderNotification

@@ -10,8 +10,8 @@ import qualified Data.Set                 as S
 
 import           Communication            (Message (..))
 import           PaxosTypes               (ClientRequest, Command (..), Decision (..),
-                                           PhaseCommitA (..), PhaseCommitB (..),
-                                           ProposeRequest (..), Slot, accepted, ballotNum,
+                                           LeaderNotification (..), PhaseCommitA (..),
+                                           PhaseCommitB (..), Slot, aBallotNum, accepted,
                                            decisions, proposals, requests, slotIn,
                                            slotOut)
 import           ServerTypes              (ServerM, acceptor, hashmap, replica,
@@ -84,11 +84,16 @@ replicaOnDecision (Message _ (Decision s c)) = do
 --------- ACCEPTOR ---------
 
 acceptorOnPC :: Message PhaseCommitA -> ServerM ()
-acceptorOnPC (Message from (P1A b)) = do
-    chosenB <- acceptor . ballotNum <%= max b
+acceptorOnPC (Message from (P1A λ b)) = do
+    chosenB <- acceptor . aBallotNum <%= max b
     acc <- use $ acceptor . accepted
-    writeMsg' from $ P1B chosenB acc
-acceptorOnPC (Message from (P2A pv@(b,_,_))) = do
-    b' <- use $ acceptor . ballotNum
+    writeMsg' from $ P1B λ chosenB acc
+acceptorOnPC (Message from (P2A λ pv@(b,_,_))) = do
+    b' <- use $ acceptor . aBallotNum
     when (b' == b) $ acceptor . accepted %= S.insert pv
-    writeMsg' from $ P2B b'
+    writeMsg' from $ P2B (b',λ)
+
+--------- LEADER ---------
+
+--beforeLeader :: ServerM ()
+--beforeLeader
