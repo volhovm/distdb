@@ -16,15 +16,18 @@ library
   exposed-modules:     Communication
                      , Types
                      , ConfigFile
+                     , Instances
   build-depends:       base >=4.8.2.0 && <4.10
                      , binary >= 0.7
                      , containers >= 0.5.6.2
                      , distributed-process >= 0.5
                      , exceptions >= 0.8.2.1
                      , network >= 2.6.2.1
+                     , network-transport >= 0.4.3.1
                      , socket >= 0.6.0.1
                      , time >= 1.5.0.1
                      , transformers >= 0.4.2.0
+                     , tuple
   hs-source-dirs:      src/library
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings
@@ -52,6 +55,7 @@ executable distdb-server
                      , socket >= 0.6.0.1
                      , time >= 1.5.0.1
                      , transformers >= 0.4.2.0
+                     , tuple
   hs-source-dirs:      src/server
   default-language:    Haskell2010
   default-extensions:  OverloadedStrings

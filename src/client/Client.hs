@@ -13,15 +13,17 @@ import           Control.Monad.IO.Class           (liftIO)
 import           Data.Bifunctor                   (bimap)
 import qualified Data.Map                         as M
 import           Data.Maybe                       (fromJust, isNothing)
+import           Network.Socket                   (withSocketsDo)
+import           System.Exit                      (exitSuccess)
 
 import qualified ClientOptions                    as O
 import           Communication                    (Message (..), PolyMessage (..),
                                                    Sendable (..), send')
 import           ConfigFile                       (readConfig)
-import           Types                            (EntryRequest (..), EntryResponse (..),
-                                                   Host (getHost), NetworkConfig (..),
-                                                   Pinging (..), Port (getPort),
-                                                   responseMatches)
+import           Types                            (Command (..), EntryRequest (..),
+                                                   EntryResponse (..), Host (getHost),
+                                                   NetworkConfig (..), Pinging (..),
+                                                   Port (getPort), responseMatches)
 
 say' = liftIO . putStrLn
 
@@ -37,32 +39,45 @@ threadDelayMS s = threadDelay $ s * (1000 :: Int)
 
 worker :: ClientConfig -> Process ()
 worker ClientConfig{..} = do
-    liftIO $ threadDelayMS 3000
+    say' "Started worker"
+    liftIO $ threadDelayMS 1000
+    say' "Getting own pid"
     self <- getSelfPid
-    capable <- P2P.getCapable "distdbNode"
+    say' "Getting capable replicas"
+    capable <- P2P.getCapable "distdbReplica"
     if null capable
     then error "Couldn't send a request -- no nodes are available"
-    else forM_ capable $ \node -> do
-      send node $ Message self cRequest
-      say' $ "Send message to " ++ show node
-      (value :: Maybe (Message EntryResponse)) <- expectTimeout $ cTimeout * 1000
-      let response = fromJust value
-      when (isNothing value) $ error "Reached timeout limit, no answer from server"
-      when (not $ responseMatches cRequest $ msgBody response) $
-          error $ concat [ "Response doesn't match request: sent "
-                         , show cRequest
-                         , ", but received "
-                         , show response ]
-      liftIO $ putStrLn $ "Success, your result: " ++ show response
+    else do
+        say' "Starting sending messages"
+        forM_ capable $ \node -> do
+            send node $ Message self $ Command 13 cRequest
+            --send node $ Message self Ping
+            say' $ "Send message to " ++ show node
+        forM_ capable $ \node -> do
+            (value :: Maybe (Message EntryResponse)) <- expectTimeout $ cTimeout * 1000
+            let response = fromJust value
+            liftIO $ do
+                when (isNothing value) $ do
+                    putStrLn "Reached timeout limit, no answer from server"
+                    error ""
+                when (not $ responseMatches cRequest $ msgBody response) $ do
+                    putStrLn $ concat [ "Response doesn't match request: sent "
+                                      , show cRequest
+                                      , ", but received "
+                                      , show response ]
+                    error ""
+                liftIO $ putStrLn $ "Success, your result: " ++ show response
+                exitSuccess
 
 main :: IO ()
-main = do
+main = withSocketsDo $ do
     o@O.ClientOptions{..} <- O.getClientOptions
     putStrLn $ "Called with options: " ++ show o
     NetworkConfig{..} <- readConfig
     let makeNode (h,p) = P2P.makeNodeId $ (h ++ ":" ++ p)
         nodes = map (makeNode . bimap getHost (show . getPort)) $
-                    M.elems portMap
+                map (\(a,b,_) -> (a,b)) $
+                M.elems portMap
     putStrLn $ "Connecting to: " ++ show nodes
     P2P.bootstrap
         (getHost clientHost)

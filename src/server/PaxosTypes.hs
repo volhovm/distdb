@@ -4,7 +4,7 @@
 module PaxosTypes
        ( Slot
        , CommandId
-       , Command (..)
+       , Command
        , ClientRequest
        , ReplicaState (..)
        , slotIn, slotOut, requests, proposals, decisions
@@ -32,18 +32,13 @@ import           Data.Typeable               (Typeable)
 import           GHC.Generics                (Generic)
 
 import           Communication               (Message, SendableLike)
-import           Types                       (EntryRequest)
+import           Types                       (Command, CommandId)
 
 type Slot = Int
-type CommandId = Int -- ? Hash?
 type Ballot = Int
 type SubLeaderId = Int
 type PValue = (Ballot, Slot, ClientRequest)
 type ClientRequest = Message Command
-
-data Command = Command CommandId EntryRequest
-               deriving (Show,Read,Eq,Ord,Generic)
-
 
 data ReplicaState = ReplicaState
     { _slotIn    :: Slot
@@ -51,8 +46,9 @@ data ReplicaState = ReplicaState
     , _requests  :: S.Set ClientRequest
     , _proposals :: S.Set (Slot, ClientRequest)
     , _decisions :: S.Set (Slot, ClientRequest)
-    } deriving (Show, Read)
+    } deriving (Show,Read,Typeable,Generic)
 makeLenses ''ReplicaState
+instance Binary ReplicaState
 
 emptyReplicaState :: ReplicaState
 emptyReplicaState = ReplicaState 1 1 S.empty S.empty S.empty
@@ -61,9 +57,7 @@ emptyReplicaState = ReplicaState 1 1 S.empty S.empty S.empty
 data Decision = Decision Slot ClientRequest
                 deriving (Show,Read,Generic,Typeable)
 
-instance Binary Command
 instance Binary Decision
-instance SendableLike Command
 instance SendableLike Decision
 
 

@@ -7,15 +7,15 @@ module Communication
        , PolyMessage (..)
        ) where
 
-import           Control.Distributed.Process (Process, ProcessId, send)
+import           Control.Distributed.Process (Process, ProcessId, getSelfPid, send)
 import           Data.Binary                 (Binary (..))
 import           Data.Typeable               (Typeable)
 import           GHC.Generics                (Generic)
 
 
 import           Instances                   ()
-import           Types                       (EntryRequest (..), EntryResponse (..),
-                                              Pinging (..))
+import           Types                       (Command (..), EntryRequest (..),
+                                              EntryResponse (..), Pinging (..))
 
 -- | Explicitely typed message
 data Message a = Message
@@ -28,11 +28,14 @@ instance (Binary a) => Binary (Message a)
 -- collection
 class (Binary a, Show a, Typeable a) => SendableLike a where
     send' :: ProcessId -> a -> Process ()
-    send' pid x = send pid $ Message pid x
+    send' pid x = do
+        self <- getSelfPid
+        send pid $ Message self x
 
 instance SendableLike Pinging
 instance SendableLike EntryRequest
 instance SendableLike EntryResponse
+instance SendableLike Command
 
 -- | Heterogehuous datatype wrapper
 data Sendable = forall a . SendableLike a => Sendable { unSendable :: a }

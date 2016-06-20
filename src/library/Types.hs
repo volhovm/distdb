@@ -10,11 +10,14 @@ module Types
        , Entry (..)
        , Host (..)
        , Port (..)
+       , Role (..)
        , NetworkConfig (..)
        , Pinging (..)
        , EntryRequest (..)
        , EntryResponse (..)
        , responseMatches
+       , Command (..)
+       , CommandId
        ) where
 
 import           Data.Binary   (Binary (..))
@@ -43,10 +46,14 @@ newtype Host = Host { getHost :: String }
 newtype Port = Port { getPort :: Word }
                deriving (Show, Num)
 
+data Role = Replica | Acceptor | Leader deriving (Show,Eq)
+
 data NetworkConfig =
-    NetworkConfig { networkSize :: Int
-                  , portMap     :: M.Map Int (Host,Port)
-                  , timeout     :: Int
+    NetworkConfig { portMapReplicas  :: M.Map Int (Host,Port)
+                  , portMapAcceptors :: M.Map Int (Host,Port)
+                  , portMapLeaders   :: M.Map Int (Host,Port)
+                  , portMap          :: M.Map Int (Host,Port,[Role])
+                  , timeout          :: Int
                   }
 
 data Pinging
@@ -86,3 +93,9 @@ responseMatches rq rs =
 data ConsensusRequest = ConsensusRequest EntryRequest
                         deriving (Typeable,Generic)
 instance Binary ConsensusRequest
+
+type CommandId = Int -- ? Hash?
+data Command = Command CommandId EntryRequest
+               deriving (Show,Read,Eq,Ord,Generic)
+
+instance Binary Command

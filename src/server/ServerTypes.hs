@@ -1,4 +1,5 @@
 {-# LANGUAGE DeriveFunctor              #-}
+{-# LANGUAGE DeriveGeneric              #-}
 {-# LANGUAGE FlexibleContexts           #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
@@ -15,7 +16,7 @@ module ServerTypes
        , writeMsg, writeLog, writeAction
 
        , ServerState (..)
-       , pongsNumber, hashmap, replica, acceptor, leader
+       , hashmap, replica, acceptor, leader
        , emptyServerState
        , dumpServerState
        , readServerState
@@ -40,18 +41,18 @@ import           Communication               (PolyMessage (..), Sendable (..),
 import           PaxosTypes                  (AcceptorState (..), LeaderState (..),
                                               ReplicaState (..), emptyAcceptorState,
                                               emptyLeaderState, emptyReplicaState)
-import           Types                       (Host, Key, Port, Value)
+import           Types                       (Host, Key, Port, Role, Value)
 
 -- Readable
 
 data ServerConfig = ServerConfig
-    { serverPid     :: ProcessId
-    , serverHost    :: Host
-    , serverPort    :: Port
-    , serverId      :: Int
-    , serverJournal :: FilePath
-    , serverNodesN  :: Int
-    , serverPeers   :: [ProcessId]
+    { serverPid      :: ProcessId
+    , serverRoles    :: [Role]
+    , serverJournal  :: FilePath
+    , acceptorsN     :: Int
+    , knownReplicas  :: [ProcessId]
+    , knownAcceptors :: [ProcessId]
+    , knownLeaders   :: [ProcessId]
     } deriving (Show)
 
 -- Writable
@@ -77,17 +78,28 @@ writeAction a = tell $ WriterPart [] [] [a]
 -- Stateful
 
 data ServerState = ServerState
-    { _pongsNumber :: Int
-    , _hashmap     :: M.Map Key Value
-    , _replica     :: ReplicaState
-    , _acceptor    :: AcceptorState
-    , _leader      :: LeaderState
-    } deriving (Show,Read)
+    { _hashmap  :: M.Map Key Value
+    , _replica  :: ReplicaState
+    , _acceptor :: AcceptorState
+    , _leader   :: LeaderState
+    } deriving (Read)
 makeLenses ''ServerState
+
+instance Show ServerState where
+    show ServerState{..} =
+        mconcat [ "ServerState {\n_hashmap = "
+                , show _hashmap
+                , ",\n_replica = "
+                , show _replica
+                , ",\n_acceptor = "
+                , show _acceptor
+                , ",\n_leader = "
+                , show _leader
+                , "}" ]
 
 emptyServerState :: ServerState
 emptyServerState =
-    ServerState 0 M.empty emptyReplicaState emptyAcceptorState emptyLeaderState
+    ServerState M.empty emptyReplicaState emptyAcceptorState emptyLeaderState
 
 -- | Writes server state to the given path
 dumpServerState :: (MonadIO m) => FilePath -> ServerState -> m ()
