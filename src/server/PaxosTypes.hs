@@ -64,8 +64,10 @@ instance SendableLike Decision
 data AcceptorState = AcceptorState
     { _aBallotNum :: Ballot
     , _accepted   :: S.Set PValue
-    } deriving (Show,Read)
+    } deriving (Show,Read,Typeable,Generic)
+
 makeLenses ''AcceptorState
+instance Binary AcceptorState
 
 emptyAcceptorState :: AcceptorState
 emptyAcceptorState = AcceptorState (-1) S.empty
@@ -93,8 +95,9 @@ data LeaderState = LeaderState
     , _lScouts     :: M.Map Ballot (S.Set ProcessId, S.Set PValue, Ballot)
     , _lCommanders :: M.Map Ballot (S.Set ProcessId, PValue)
     , _lUniqueId   :: Int
-    } deriving (Show,Read)
+    } deriving (Show,Read,Typeable,Generic)
 makeLenses ''LeaderState
+instance Binary LeaderState
 
 emptyLeaderState :: LeaderState
 emptyLeaderState = LeaderState 0 False S.empty M.empty M.empty 0

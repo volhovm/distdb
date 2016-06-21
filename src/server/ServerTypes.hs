@@ -13,7 +13,7 @@ module ServerTypes
        ( ServerConfig (..)
 
        , WriterPart (..)
-       , writeMsg, writeLog, writeAction
+       , writeMsg, writeLog
 
        , ServerState (..)
        , hashmap, replica, acceptor, leader
@@ -32,9 +32,14 @@ import           Control.Lens                (makeLenses)
 import           Control.Monad.IO.Class      (MonadIO (..), liftIO)
 import           Control.Monad.RWS.Strict    (MonadReader, MonadState, MonadWriter, RWS,
                                               ask, tell)
+import           Data.Binary                 (Binary, decodeFile, encodeFile)
+import qualified Data.ByteString             as BS
 import qualified Data.Map                    as M
 import           Data.Maybe                  (listToMaybe)
+import           Data.Monoid                 ((<>))
 import           Data.Time.Clock             (getCurrentTime)
+import           Data.Typeable               (Typeable)
+import           GHC.Generics                (Generic)
 
 import           Communication               (PolyMessage (..), Sendable (..),
                                               SendableLike)
@@ -58,22 +63,19 @@ data ServerConfig = ServerConfig
 -- Writable
 
 data WriterPart = WriterPart
-    { wMessages  :: [PolyMessage]
-    , wLogs      :: [String]
-    , wIOActions :: [IO ()]
+    { wMessages :: [PolyMessage]
+    , wLogs     :: [String]
     }
 
 instance Monoid WriterPart where
-    mempty = WriterPart [] [] []
-    mappend (WriterPart a b c) (WriterPart d e f) =
-        WriterPart (a ++ d) (b ++ e) (c ++ f)
+    mempty = WriterPart [] []
+    mappend (WriterPart a b) (WriterPart d e) =
+        WriterPart (a ++ d) (b ++ e)
 
 writeMsg    :: (MonadWriter WriterPart m) => PolyMessage -> m ()
 writeLog    :: (MonadWriter WriterPart m) => String -> m ()
-writeAction :: (MonadWriter WriterPart m) => IO () -> m ()
-writeMsg m = tell $ WriterPart [m] [] []
-writeLog l = tell $ WriterPart [] [l] []
-writeAction a = tell $ WriterPart [] [] [a]
+writeMsg m = tell $ WriterPart [m] []
+writeLog l = tell $ WriterPart [] [l]
 
 -- Stateful
 
@@ -82,20 +84,22 @@ data ServerState = ServerState
     , _replica  :: ReplicaState
     , _acceptor :: AcceptorState
     , _leader   :: LeaderState
-    } deriving (Read,Show)
+    } deriving (Read,Generic,Typeable)
 makeLenses ''ServerState
 
---instance Show ServerState where
---    show ServerState{..} =
---        mconcat [ "ServerState {\n_hashmap = "
---                , show _hashmap
---                , ",\n_replica = "
---                , show _replica
---                , ",\n_acceptor = "
---                , show _acceptor
---                , ",\n_leader = "
---                , show _leader
---                , "}" ]
+instance Binary ServerState
+
+instance Show ServerState where
+    show ServerState{..} =
+        mconcat [ "ServerState {\n_hashmap = "
+                , show _hashmap
+                , ",\n_replica = "
+                , show _replica
+                , ",\n_acceptor = "
+                , show _acceptor
+                , ",\n_leader = "
+                , show _leader
+                , "}" ]
 
 emptyServerState :: ServerState
 emptyServerState =
@@ -103,9 +107,7 @@ emptyServerState =
 
 -- | Writes server state to the given path
 dumpServerState :: (MonadIO m) => FilePath -> ServerState -> m ()
-dumpServerState journalPath st = liftIO $ do
-    curDate <- getCurrentTime
-    appendFile journalPath $ show curDate ++ "\n" ++ show st ++ "\n"
+dumpServerState journalPath st = liftIO $ encodeFile journalPath st
 
 -- | If not succeeds to read server state, creates an empty one, dumps
 -- it and returns it
@@ -113,11 +115,9 @@ readServerState :: (MonadIO m) => FilePath -> m ServerState
 readServerState journalPath = liftIO $ go `catch` fallback
   where
     go = do
-        maybeState <-
-            fmap fst . listToMaybe . reads . last . lines <$>
-            readFile journalPath
+        res <- decodeFile journalPath
         threadDelay 400000
-        maybe (error ":(") return maybeState
+        return res
     fallback (e :: SomeException) = do
         liftIO $ putStrLn $ "Creating emptyServerState, failed to read: " ++ show e
         dumpServerState journalPath emptyServerState

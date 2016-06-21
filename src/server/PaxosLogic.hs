@@ -182,7 +182,9 @@ leaderOnCommit (Message α (P2B ψ b')) = do
                 when (length answers > n `div` 2) $ do
                     writeLog "Commander: More than half of responses, exiting, sending Decision"
                     nodes <- knownReplicas <$> ask
-                    forM_ nodes $ \replica' -> writeMsg' replica' $ Decision s c
+                    forM_ nodes $ \replica' -> do
+                        writeLog $ "Commander -> replica " ++ show replica'
+                        writeMsg' replica' $ Decision s c
                     suicide
         else do writeLog "Commander: sending Preempted"
                 sendBack $ Preempted b'

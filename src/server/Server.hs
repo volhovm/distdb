@@ -69,6 +69,7 @@ roleToService Acceptor = "distdbAcceptor"
 stateSharingHandler :: Message StateSharing -> ServerM ()
 stateSharingHandler (Message _ (HereIsYourState _ _)) = return () -- ignore
 stateSharingHandler (Message from ShareStatePls) = do
+    writeLog "State sharing requesting, performing"
     r <- use replica
     h <- use hashmap
     writeMsg' from $ HereIsYourState r h
@@ -90,11 +91,10 @@ pingingHandler (Message from Pong) =
     writeLog $ "I was ponged by " ++ show from
 
 runWriterPart WriterPart{..} = do
+    forM_ wLogs say'
     forM_ wMessages $ \PolyMessage{..} -> do
         say' "Sending a message to somebody"
         case msgBody' of (Sendable a) -> send' msgTo' a
-    forM_ wLogs say'
-    forM_ wIOActions liftIO
 
 updateConfig :: ServerConfig -> Process ServerConfig
 updateConfig ServerConfig {..} = do
@@ -116,14 +116,14 @@ runServer config state = do
             [
               match $ run tickHandler,
               match $ run pingingHandler]
-    runWriterPart
-        writerPart
+    config' <- updateConfig config
+    runWriterPart writerPart
     say' "\n"
     liftIO $ print =<< getCurrentTime
     --say' $ "Current state: " ++ show state'
-    config' <- updateConfig config
-    dumpServerState (serverJournal config') state'
-    runServer config' state'
+    config'' <- updateConfig config'
+    dumpServerState (serverJournal config'') state'
+    runServer config'' state'
   where
     run handler msg =
         return $ execRWS (runServerM $ handler msg) config state

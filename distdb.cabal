@@ -19,6 +19,7 @@ library
                      , Instances
   build-depends:       base >=4.8.2.0 && <4.10
                      , binary >= 0.7
+                     , bytestring >= 0.10.6.0
                      , containers >= 0.5.6.2
                      , distributed-process >= 0.5
                      , exceptions >= 0.8.2.1
@@ -41,6 +42,7 @@ executable distdb-server
                      , ServerTypes
   build-depends:       base >=4.8.2.0 && <4.10
                      , binary >= 0.7
+                     , bytestring >= 0.10.6.0
                      , containers >= 0.5.6.2
                      , distdb
                      , distributed-process >= 0.5
@@ -65,6 +67,7 @@ executable distdb-server
 executable distdb-client
   main-is:             Client.hs
   build-depends:       base >=4.8.2.0 && <4.10
+                     , bytestring >= 0.10.6.0
                      , containers >= 0.5.6.2
                      , distdb
                      , distributed-process >= 0.5
