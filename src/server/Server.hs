@@ -20,7 +20,7 @@ import           Control.Monad.IO.Class           (MonadIO (..), liftIO)
 import           Control.Monad.RWS.Strict         (ask, execRWS)
 import           Data.Bifunctor                   (bimap)
 import           Data.Binary                      (Binary (..))
-import           Data.List                        (delete)
+import           Data.List                        (delete, nub)
 import qualified Data.Map                         as M
 import           Data.Maybe                       (fromJust, isJust)
 import           Data.Time.Clock                  (getCurrentTime)
@@ -98,14 +98,15 @@ runWriterPart WriterPart{..} = do
 
 updateConfig :: ServerConfig -> Process ServerConfig
 updateConfig ServerConfig {..} = do
-    a' <- maxL knownAcceptors <$> getNodes Acceptor
-    r' <- maxL knownReplicas <$> getNodes Replica
-    l' <- maxL knownLeaders <$> getNodes Leader
+    a' <- unionL knownAcceptors <$> getNodes Acceptor
+    r' <- unionL knownReplicas <$> getNodes Replica
+    l' <- unionL knownLeaders <$> getNodes Leader
+    say' "Updating config"
     return $ ServerConfig { knownReplicas = r'
                           , knownAcceptors = a'
                           , knownLeaders = l', ..}
   where
-    maxL a b = if length a >= length b then a else b
+    unionL a b = nub $ a ++ b
 
 runServer :: ServerConfig -> ServerState -> Process ()
 runServer config state = do

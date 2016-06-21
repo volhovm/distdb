@@ -55,6 +55,7 @@ replicaPropose = do
     reqs <- uses (replica . requests) S.toList
     decs <- use $ replica .decisions
     when (sIn < sOut + _WINDOW && not (null reqs)) $ do
+        writeLog "Replica's sin/sout decision is working"
         let c = head reqs
         unless (any (\(s,_) -> s == sIn) decs) $ do
             replica . requests %= S.delete c
